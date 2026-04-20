@@ -7,7 +7,7 @@ import org.apache.kafka.streams.kstream.KTable;
 
 import java.util.Properties;
 
-public class Exercice2 {
+public class Meteologic_Data {
     public static void main(String[] args) {
         Properties props = new Properties();
         props.put("application.id", "kafka-streams-app");
@@ -40,15 +40,26 @@ public class Exercice2 {
 
 
         KGroupedStream<String,String> groupedStream = MeterologiqueDataConverted.groupBy((key, value) ->value.split(",")[0] );
-        KTable<String,Double> Temperature_average_by_station = groupedStream.aggregate(() ->0.0 ,
-                (key,value,aggregate)->{
-                        double temperature = Double.parseDouble(value.split(",")[1]);
+        KTable<String, String> averageStats = groupedStream.aggregate(
+                () -> "0.0:0.0:0", // Initial "sumTemp:sumHumidity:count"
+                (key, value, aggregate) -> {
+                    String[] data = value.split(",");
+                    double temp = Double.parseDouble(data[1]);
+                    double hum = Double.parseDouble(data[2]);
 
+                    String[] parts = aggregate.split(":");
+                    double newSumTemp = Double.parseDouble(parts[0]) + temp;
+                    double newSumHum = Double.parseDouble(parts[1]) + hum;
+                    int newCount = Integer.parseInt(parts[2]) + 1;
 
-
-                });
-
-
+                    return newSumTemp + ":" + newSumHum + ":" + newCount;
+                }
+        ).mapValues((key,value) -> {
+            String[] parts = value.split(":");
+            double avgTemp = Double.parseDouble(parts[0]) / Double.parseDouble(parts[2]);
+            double avgHum = Double.parseDouble(parts[1]) / Double.parseDouble(parts[2]);
+            return key + " / " + String.format("%.2f", avgTemp) + " / " + String.format("%.2f", avgHum);
+        });
 
     }
 }

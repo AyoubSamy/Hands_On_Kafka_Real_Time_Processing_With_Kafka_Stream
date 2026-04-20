@@ -12,7 +12,7 @@ import org.apache.kafka.streams.kstream.Named;
 
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
 // click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
-public class Exercice1 {
+public class Textual_Data {
     public static void main(String[] args) {
         // Configurer l'application Kafka Streams
         Properties props = new Properties();
@@ -43,6 +43,8 @@ public class Exercice1 {
                 .branch((key, value) -> true, Branched.as("invalid"))
                 .noDefaultBranch();
 
+// the result of this processing using .branch is a map with a key (filter-valid or filter-invalid ) which is string and a kstream of the actual stream
+
         branches.get("filter-valid").to("text-clean");
         branches.get("filter-invalid").to("text-dead-letter");
 
@@ -51,7 +53,7 @@ public class Exercice1 {
         KafkaStreams streams = new KafkaStreams(builder.build(), props);
         streams.start();
 
-        // Ajouter un hook pour arrêter proprement
+        // stop properly using the jvm thread to stop kafka
         Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
     }
 }
