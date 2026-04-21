@@ -1,5 +1,6 @@
 package net.ayoub;
 
+import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.KGroupedStream;
 import org.apache.kafka.streams.kstream.KStream;
@@ -21,11 +22,24 @@ public class Meteologic_Data {
         KStream<String,String> meterologieStrem = builder.stream("weather-data");
 
  // 2 Transformation 1 : eliminer les donnees avec les temperature moins que 30 degre
+        KStream<String,String> FiltredDataByTemperature = meterologieStrem.filter((key, value) -> {
+            // 1. Check if the value is null or empty
+            if (value == null || value.trim().isEmpty()) return false;
 
-        KStream<String,String> FiltredDataByTemperature = meterologieStrem.filter((key, value) ->{
-            String[] parts  = value.split(",");
-            Double Temperature = Double.parseDouble(parts[1]);
-            return Temperature>30.0;
+            // 2. Split and check if we have at least the first two columns
+            String[] parts = value.split(",");
+            if (parts.length < 2) {
+                System.out.println("Skipping malformed line: " + value);
+                return false;
+            }
+
+            try {
+                Double Temperature = Double.parseDouble(parts[1]);
+                return Temperature > 30.0;
+            } catch (NumberFormatException e) {
+                System.err.println("Non-numeric temperature found: " + parts[1]);
+                return false;
+            }
         });
 //3 Transformation 2 : convertire la temperature en Fahrenheit (°F)
 
@@ -60,6 +74,14 @@ public class Meteologic_Data {
             double avgHum = Double.parseDouble(parts[1]) / Double.parseDouble(parts[2]);
             return key + " / " + String.format("%.2f", avgTemp) + " / " + String.format("%.2f", avgHum);
         });
+
+        averageStats.toStream().to("weather-averages");
+        // Start Kafka Streams
+        KafkaStreams streams = new KafkaStreams(builder.build(), props);
+        streams.start();
+
+        // Graceful shutdown
+        Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
 
     }
 }
